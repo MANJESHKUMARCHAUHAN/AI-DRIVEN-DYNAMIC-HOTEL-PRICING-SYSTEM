@@ -1,0 +1,80 @@
+# --- secrets -----------------------------------------------------------------
+# .env holds real credentials. Only the template is committed.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# --- python ------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# --- virtual environments ----------------------------------------------------
+.venv/
+venv/
+env/
+ENV/
+
+# --- testing / typing --------------------------------------------------------
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+.hypothesis/
+
+# --- data --------------------------------------------------------------------
+# Datasets are generated, never committed. Reproduce with:
+#   python scripts/generate_data.py
+data/raw/*
+data/processed/*
+data/synthetic/*
+!data/**/.gitkeep
+*.csv
+*.parquet
+*.db
+*.sqlite3
+
+# --- model artifacts ---------------------------------------------------------
+# Trained models are build output. The registry records how to rebuild them.
+models/artifacts/*
+!models/artifacts/.gitkeep
+*.joblib
+*.pkl
+*.json.gz
+
+# --- prophet / stan ----------------------------------------------------------
+# Prophet compiles Stan models into a scratch directory on first fit.
+.cmdstan/
+cmdstan-*/
+*.stan.bak
+
+# --- logs --------------------------------------------------------------------
+logs/
+*.log
+
+# --- streamlit ---------------------------------------------------------------
+.streamlit/secrets.toml
+
+# --- editors -----------------------------------------------------------------
+.vscode/
+.idea/
+*.swp
+*~
+
+# --- os ----------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
