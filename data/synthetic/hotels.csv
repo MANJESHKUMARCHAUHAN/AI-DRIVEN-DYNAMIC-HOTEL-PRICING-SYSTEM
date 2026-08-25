@@ -1,0 +1,9 @@
+hotel_id,hotel_name,city,country,star_rating,total_rooms,segment,currency,latitude,longitude,is_active
+H001,Sanchay Grand Mumbai,Mumbai,India,5,240,business,INR,19.076,72.8777,True
+H002,Marine Bay Suites,Mumbai,India,4,160,mixed,INR,18.922,72.8347,True
+H003,Whitefield Tech Residency,Bengaluru,India,4,180,business,INR,12.9698,77.75,True
+H004,Azure Sands Resort,Goa,India,5,140,leisure,INR,15.2993,74.124,True
+H005,Amber Fort Palace,Jaipur,India,5,120,leisure,INR,26.9124,75.7873,True
+H006,Capital Business Tower,New Delhi,India,4,210,business,INR,28.6139,77.209,True
+H007,Lake Pichola Heritage,Udaipur,India,5,90,leisure,INR,24.576,73.68,True
+H008,Koramangala Express Inn,Bengaluru,India,3,130,mixed,INR,12.9352,77.6245,True

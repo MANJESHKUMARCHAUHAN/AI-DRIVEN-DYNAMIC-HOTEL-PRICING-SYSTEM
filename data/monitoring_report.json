@@ -1,0 +1,210 @@
+{
+  "generated_at": "2026-08-24T11:59:20.113473+00:00",
+  "severity": "critical",
+  "data_quality": {
+    "generated_at": "2026-08-24T11:59:20.182508+00:00",
+    "severity": "warning",
+    "passed": 8,
+    "total": 9,
+    "checks": [
+      {
+        "name": "reference_data",
+        "severity": "ok",
+        "message": "8 hotel(s), 32 room type(s)",
+        "value": 8.0,
+        "threshold": null,
+        "detail": {}
+      },
+      {
+        "name": "booking_recency",
+        "severity": "ok",
+        "message": "bookings run to 2026-08-24",
+        "value": 0.0,
+        "threshold": null,
+        "detail": {}
+      },
+      {
+        "name": "competitor_freshness",
+        "severity": "ok",
+        "message": "newest competitor rate is 0.5h old",
+        "value": 0.5,
+        "threshold": null,
+        "detail": {}
+      },
+      {
+        "name": "competitor_coverage",
+        "severity": "warning",
+        "message": "only 6% of the next 30 nights have a competitor rate; the competitor features are mostly imputed and the competitor adjustment is mostly zero",
+        "value": 0.0645,
+        "threshold": 0.5,
+        "detail": {}
+      },
+      {
+        "name": "feature_freshness",
+        "severity": "ok",
+        "message": "features computed 1.1h ago",
+        "value": 1.1,
+        "threshold": null,
+        "detail": {}
+      },
+      {
+        "name": "feature_version",
+        "severity": "ok",
+        "message": "all stored features are v1",
+        "value": null,
+        "threshold": null,
+        "detail": {
+          "versions": {
+            "v1": 11648
+          }
+        }
+      },
+      {
+        "name": "feature_nulls",
+        "severity": "ok",
+        "message": "no nulls across 11,648 computed rows",
+        "value": null,
+        "threshold": null,
+        "detail": {}
+      },
+      {
+        "name": "target_range",
+        "severity": "ok",
+        "message": "realised demand spans 0.00 to 1.15, mean 0.64",
+        "value": 1.1481481481481481,
+        "threshold": null,
+        "detail": {}
+      },
+      {
+        "name": "duplicate_grain",
+        "severity": "ok",
+        "message": "the feature store grain is intact",
+        "value": null,
+        "threshold": null,
+        "detail": {}
+      }
+    ]
+  },
+  "model_health": {
+    "generated_at": "2026-08-24T11:59:20.247092+00:00",
+    "severity": "critical",
+    "drift": [
+      {
+        "feature": "occupancy_rate",
+        "psi": 0.2078,
+        "severity": "critical",
+        "reference_mean": 0.4711,
+        "current_mean": 0.3823,
+        "reference_n": 10688,
+        "current_n": 960
+      },
+      {
+        "feature": "competitor_rate",
+        "psi": 0.2425,
+        "severity": "critical",
+        "reference_mean": 10157.5861,
+        "current_mean": 8019.9253,
+        "reference_n": 10688,
+        "current_n": 960
+      },
+      {
+        "feature": "search_demand",
+        "psi": 0.1924,
+        "severity": "warning",
+        "reference_mean": 0.8055,
+        "current_mean": 0.7205,
+        "reference_n": 10688,
+        "current_n": 960
+      },
+      {
+        "feature": "historical_demand",
+        "psi": 1.2205,
+        "severity": "critical",
+        "reference_mean": 0.6491,
+        "current_mean": 0.5371,
+        "reference_n": 10688,
+        "current_n": 960
+      },
+      {
+        "feature": "current_room_price",
+        "psi": 0.3541,
+        "severity": "critical",
+        "reference_mean": 10286.4992,
+        "current_mean": 7707.0473,
+        "reference_n": 10688,
+        "current_n": 960
+      },
+      {
+        "feature": "lead_time",
+        "psi": 0.0303,
+        "severity": "ok",
+        "reference_mean": 31.423,
+        "current_mean": 30.9072,
+        "reference_n": 10688,
+        "current_n": 960
+      },
+      {
+        "feature": "booking_count",
+        "psi": 0.0263,
+        "severity": "ok",
+        "reference_mean": 5.1667,
+        "current_mean": 4.5292,
+        "reference_n": 10688,
+        "current_n": 960
+      }
+    ],
+    "checks": [
+      {
+        "name": "drift_seasonality_caveat",
+        "severity": "warning",
+        "message": "only 364 days of history, so the 30-day drift window is compared against a reference covering different seasons. In a seasonal business that shows as drift even when nothing has changed -- read the PSI values below as a ranking, not as a retraining trigger.",
+        "value": 364.0,
+        "threshold": 730,
+        "detail": {}
+      },
+      {
+        "name": "prediction_volume",
+        "severity": "ok",
+        "message": "only 2 prediction(s) served; too few to judge the distribution (need 50)",
+        "value": 2.0,
+        "threshold": 50,
+        "detail": {}
+      },
+      {
+        "name": "guardrail_pressure",
+        "severity": "ok",
+        "message": "guardrails changed 0% of prices",
+        "value": 0.0,
+        "threshold": null,
+        "detail": {}
+      }
+    ],
+    "prediction_stats": {
+      "n": 2,
+      "demand_mean": 0.6035,
+      "demand_std": 0.0,
+      "demand_min": 0.6035,
+      "demand_max": 0.6035,
+      "confidence_mean": 0.7575,
+      "latency_p95_ms": 30.9,
+      "values": [
+        0.6034886737979517,
+        0.6034886737979517
+      ]
+    },
+    "price_stats": {
+      "n": 2,
+      "price_mean": 6447.5,
+      "price_min": 6446.0,
+      "price_max": 6449.0,
+      "clamped_share": 0.0,
+      "mean_change_percent": 7.46,
+      "values": [
+        6449.0,
+        6446.0
+      ]
+    },
+    "guardrail_counts": {},
+    "accuracy": null
+  }
+}
