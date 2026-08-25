@@ -1,0 +1,331 @@
+{
+  "version": "v1",
+  "feature_version": "v1",
+  "started_at": "2026-08-24T10:58:24.760762+00:00",
+  "finished_at": "2026-08-24T10:58:45.484230+00:00",
+  "duration_seconds": 20.723346700000548,
+  "n_rows": 11648,
+  "n_train": 9728,
+  "n_test": 1920,
+  "train_window": [
+    "2025-08-25",
+    "2026-06-24"
+  ],
+  "test_window": [
+    "2026-06-25",
+    "2026-08-23"
+  ],
+  "dataset_hash": "229cdbc260b29cd46fa601963edee11e1d0d0249c44a7f790471c7980dffb7d5",
+  "steps": [
+    {
+      "name": "gradient_boosting",
+      "succeeded": true,
+      "duration_seconds": 4.505941700001131,
+      "artifact": "C:\\Users\\SANCHAY\\Desktop\\AI-DRIVEN DYNAMIC HOTEL PRICING SYSTEM\\models\\artifacts\\gbr_v1.joblib",
+      "metrics": {
+        "mae": 0.06436871976936394,
+        "rmse": 0.08377917532864249,
+        "mape": 13.555906942798018,
+        "smape": 12.949654605213206,
+        "weighted_mape": 11.990421890159672,
+        "r2": 0.7652900802171073,
+        "bias": -0.008701825684056657,
+        "n": 1920,
+        "mape_coverage": 1.0
+      },
+      "baseline": {
+        "mae": 0.1429845553255174,
+        "rmse": 0.17293000682145554,
+        "mape": 31.59983878106945,
+        "smape": 27.382395941934124,
+        "weighted_mape": 26.634755954021855,
+        "r2": 0.0,
+        "bias": 9.25185853854297e-18,
+        "n": 1920,
+        "mape_coverage": 1.0
+      },
+      "error": null,
+      "detail": {
+        "n_estimators_used": 247,
+        "residual_std": 0.08332603703832141
+      }
+    },
+    {
+      "name": "prophet",
+      "succeeded": true,
+      "duration_seconds": 15.871771300000546,
+      "artifact": "C:\\Users\\SANCHAY\\Desktop\\AI-DRIVEN DYNAMIC HOTEL PRICING SYSTEM\\models\\artifacts\\prophet_v1.joblib",
+      "metrics": {
+        "mae": 0.08788170951689059,
+        "rmse": 0.11444526753605115,
+        "mape": 17.46476645238919,
+        "smape": 18.415454286210096,
+        "weighted_mape": 16.370354689538217,
+        "r2": 0.5620193132342439,
+        "bias": -0.02902526111663847,
+        "n": 1920,
+        "mape_coverage": 1.0,
+        "interval_coverage": 0.7796875
+      },
+      "baseline": {
+        "mae": 0.1429845553255174,
+        "rmse": 0.17293000682145554,
+        "mape": 31.59983878106945,
+        "smape": 27.382395941934124,
+        "weighted_mape": 26.634755954021855,
+        "r2": 0.0,
+        "bias": 9.25185853854297e-18,
+        "n": 1920,
+        "mape_coverage": 1.0
+      },
+      "error": null,
+      "detail": {
+        "series_fitted": 32,
+        "series_total": 32,
+        "backtest_folds": 2,
+        "backtest_metrics": {
+          "mae": 0.11620955810286228,
+          "rmse": 0.14233552261600174,
+          "mape": 22.39908180525362,
+          "smape": 23.740212781841805,
+          "weighted_mape": 21.73226448708538,
+          "r2": -0.2778188566123693,
+          "bias": -0.023127517560509785,
+          "n": 1920,
+          "mape_coverage": 1.0,
+          "interval_coverage": 0.6260416666666667
+        }
+      }
+    }
+  ],
+  "feature_importance": [
+    {
+      "feature": "occupancy_rate",
+      "importance": 0.029836,
+      "std": 0.000858
+    },
+    {
+      "feature": "days_to_checkin",
+      "importance": 0.014673,
+      "std": 0.000518
+    },
+    {
+      "feature": "occupancy_x_lead",
+      "importance": 0.00796,
+      "std": 0.000413
+    },
+    {
+      "feature": "search_demand",
+      "importance": 0.007316,
+      "std": 0.000443
+    },
+    {
+      "feature": "lead_time",
+      "importance": 0.007062,
+      "std": 0.000181
+    },
+    {
+      "feature": "historical_demand",
+      "importance": 0.005564,
+      "std": 0.000308
+    },
+    {
+      "feature": "demand_pressure",
+      "importance": 0.004504,
+      "std": 0.000338
+    },
+    {
+      "feature": "price_to_competitor",
+      "importance": 0.003943,
+      "std": 0.00041
+    },
+    {
+      "feature": "pickup_velocity",
+      "importance": 0.002945,
+      "std": 0.000442
+    },
+    {
+      "feature": "weather_score",
+      "importance": 0.002917,
+      "std": 0.00051
+    },
+    {
+      "feature": "booking_count",
+      "importance": 0.002889,
+      "std": 0.000313
+    },
+    {
+      "feature": "day_of_week",
+      "importance": 0.002594,
+      "std": 0.000241
+    },
+    {
+      "feature": "total_rooms",
+      "importance": 0.002248,
+      "std": 0.000279
+    },
+    {
+      "feature": "available_rooms",
+      "importance": 0.001335,
+      "std": 0.00011
+    },
+    {
+      "feature": "cancellation_count",
+      "importance": 0.000995,
+      "std": 0.000177
+    },
+    {
+      "feature": "is_weekend",
+      "importance": 0.000798,
+      "std": 7.4e-05
+    },
+    {
+      "feature": "current_room_price",
+      "importance": 0.000682,
+      "std": 3.6e-05
+    },
+    {
+      "feature": "competitor_max_rate",
+      "importance": 0.000401,
+      "std": 6.1e-05
+    },
+    {
+      "feature": "competitor_rate",
+      "importance": 0.000362,
+      "std": 6.8e-05
+    },
+    {
+      "feature": "competitor_spread",
+      "importance": 0.000329,
+      "std": 7.3e-05
+    }
+  ],
+  "per_horizon": [
+    {
+      "days_to_checkin": 14,
+      "n": 169,
+      "mae": 0.0847,
+      "rmse": 0.1066,
+      "mape": 17.99,
+      "r2": 0.629,
+      "bias": 0.0021,
+      "baseline_mae": 0.1441
+    },
+    {
+      "days_to_checkin": 60,
+      "n": 77,
+      "mae": 0.0805,
+      "rmse": 0.104,
+      "mape": 16.5,
+      "r2": 0.647,
+      "bias": -0.013,
+      "baseline_mae": 0.1438
+    },
+    {
+      "days_to_checkin": 45,
+      "n": 115,
+      "mae": 0.0786,
+      "rmse": 0.1009,
+      "mape": 15.63,
+      "r2": 0.569,
+      "bias": -0.0317,
+      "baseline_mae": 0.1273
+    },
+    {
+      "days_to_checkin": 30,
+      "n": 172,
+      "mae": 0.0766,
+      "rmse": 0.1005,
+      "mape": 14.1,
+      "r2": 0.692,
+      "bias": -0.0289,
+      "baseline_mae": 0.1509
+    },
+    {
+      "days_to_checkin": 21,
+      "n": 171,
+      "mae": 0.0734,
+      "rmse": 0.0934,
+      "mape": 15.44,
+      "r2": 0.67,
+      "bias": -0.0099,
+      "baseline_mae": 0.1318
+    },
+    {
+      "days_to_checkin": 10,
+      "n": 190,
+      "mae": 0.0678,
+      "rmse": 0.0859,
+      "mape": 14.45,
+      "r2": 0.742,
+      "bias": 0.0056,
+      "baseline_mae": 0.1381
+    },
+    {
+      "days_to_checkin": 7,
+      "n": 220,
+      "mae": 0.0636,
+      "rmse": 0.0809,
+      "mape": 13.07,
+      "r2": 0.742,
+      "bias": -0.0106,
+      "baseline_mae": 0.1306
+    },
+    {
+      "days_to_checkin": 5,
+      "n": 182,
+      "mae": 0.0602,
+      "rmse": 0.0762,
+      "mape": 14.23,
+      "r2": 0.835,
+      "bias": -0.004,
+      "baseline_mae": 0.1577
+    },
+    {
+      "days_to_checkin": 3,
+      "n": 161,
+      "mae": 0.0542,
+      "rmse": 0.0703,
+      "mape": 10.46,
+      "r2": 0.841,
+      "bias": -0.0218,
+      "baseline_mae": 0.1488
+    },
+    {
+      "days_to_checkin": 2,
+      "n": 157,
+      "mae": 0.0497,
+      "rmse": 0.0636,
+      "mape": 10.93,
+      "r2": 0.879,
+      "bias": -0.0042,
+      "baseline_mae": 0.1535
+    },
+    {
+      "days_to_checkin": 1,
+      "n": 181,
+      "mae": 0.0462,
+      "rmse": 0.0564,
+      "mape": 10.08,
+      "r2": 0.893,
+      "bias": -0.0006,
+      "baseline_mae": 0.1415
+    },
+    {
+      "days_to_checkin": 0,
+      "n": 125,
+      "mae": 0.0447,
+      "rmse": 0.0582,
+      "mape": 11.34,
+      "r2": 0.884,
+      "bias": 0.0039,
+      "baseline_mae": 0.1443
+    }
+  ],
+  "artifacts": {
+    "gradient_boosting": "C:\\Users\\SANCHAY\\Desktop\\AI-DRIVEN DYNAMIC HOTEL PRICING SYSTEM\\models\\artifacts\\gbr_v1.joblib",
+    "prophet": "C:\\Users\\SANCHAY\\Desktop\\AI-DRIVEN DYNAMIC HOTEL PRICING SYSTEM\\models\\artifacts\\prophet_v1.joblib",
+    "feature_list": "C:\\Users\\SANCHAY\\Desktop\\AI-DRIVEN DYNAMIC HOTEL PRICING SYSTEM\\models\\artifacts\\feature_list.json"
+  },
+  "succeeded": true
+}
