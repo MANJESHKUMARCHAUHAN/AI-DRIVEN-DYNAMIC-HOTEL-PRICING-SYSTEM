@@ -1,0 +1,4 @@
+# DEPRECATED -- see pyproject.toml. Use: pip install -e ".[agent]"
+#
+# Safe to delete; nothing in the project references it.
+-e .[agent]

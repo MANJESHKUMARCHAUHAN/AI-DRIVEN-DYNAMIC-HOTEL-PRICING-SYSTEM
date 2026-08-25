@@ -1,0 +1,210 @@
+# =============================================================================
+# AI-Driven Dynamic Hotel Pricing System
+#
+# ONE dependency file. This replaces requirements.txt, requirements-dev.txt and
+# requirements-agent.txt, which said the same thing in three places and drifted.
+#
+#   pip install -e .                 runtime only  (API, models, pricing)
+#   pip install -e ".[dev]"          + pytest, ruff, mypy
+#   pip install -e ".[agent]"        + the optional LLM agent
+#   pip install -e ".[dev,agent]"    everything
+#
+# WHY EXTRAS RATHER THAN SEPARATE FILES
+# The three groups are not three projects, they are one project with optional
+# capabilities -- which is exactly what [project.optional-dependencies] is for.
+# Separate files also cannot express "agent needs runtime but not dev"; a `-r`
+# chain fakes it and breaks the moment somebody installs the wrong one.
+#
+# The `agent` extra stays optional on purpose: the pricing system must run with
+# no LLM SDK present, and a dependency that is merely *documented* as optional
+# eventually becomes required. Here it is structurally optional.
+# =============================================================================
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dynamic-hotel-pricing"
+version = "1.0.0"
+description = "AI-driven dynamic hotel pricing: streaming ingestion, demand forecasting, and an auditable pricing engine"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Sanchay" }]
+keywords = ["revenue-management", "dynamic-pricing", "forecasting", "mlops"]
+
+classifiers = [
+    "Programming Language :: Python :: 3.11",
+    "Framework :: FastAPI",
+    "Intended Audience :: Developers",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Private :: Do Not Upload",
+]
+
+# Every version is pinned exactly. Two of these pins are load-bearing and are
+# commented where they sit -- an unpinned resolve breaks them at runtime, not at
+# install time, which is the worst place to find out.
+dependencies = [
+    # --- web ---------------------------------------------------------------
+    "fastapi==0.115.6",
+    "uvicorn[standard]==0.34.0",
+    "pydantic==2.10.4",
+    "pydantic-settings==2.7.0",
+
+    # --- data --------------------------------------------------------------
+    "SQLAlchemy==2.0.36",
+    "psycopg2-binary==2.9.10",
+    "numpy==1.26.4",
+    "pandas==2.2.3",
+
+    # --- streaming ---------------------------------------------------------
+    # 2.3.2, not the 2.0.2 most tutorials pin: 2.0.2 cannot speak to Kafka 4.x
+    # and breaks outright on Python 3.12+.
+    "kafka-python==2.3.2",
+
+    # --- modelling ---------------------------------------------------------
+    "scikit-learn==1.5.2",
+    "prophet==1.1.6",
+    # LOAD-BEARING PIN. Prophet 1.1.6 declares cmdstanpy>=1.0.4, so an unpinned
+    # install resolves to 1.3.x, which rejects the trimmed CmdStan directory the
+    # Prophet wheel ships. Prophet swallows that error and every later call dies
+    # with "'Prophet' object has no attribute 'stan_backend'".
+    "cmdstanpy==1.2.4",
+    "holidays==0.63",
+    "joblib==1.4.2",
+
+    # --- ingestion ---------------------------------------------------------
+    "beautifulsoup4==4.12.3",
+    "lxml==5.3.0",
+    "requests==2.32.3",
+    "httpx==0.28.1",
+
+    # --- dashboard ---------------------------------------------------------
+    "streamlit==1.41.1",
+    "plotly==5.24.1",
+
+    # --- utilities ---------------------------------------------------------
+    "python-dotenv==1.0.1",
+    "tenacity==9.0.0",
+    "prometheus-client==0.21.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==8.3.4",
+    "pytest-cov==6.0.0",
+    "pytest-asyncio==0.25.0",
+    "ruff==0.8.6",
+    "mypy==1.14.1",
+    "types-requests==2.32.0.20241016",
+    "pyflakes==3.2.0",
+]
+
+# The AI agent. Absent by default, and the system is tested in that state --
+# see tests/test_ai_agent.py::TestOptionalDependency.
+agent = ["anthropic>=0.75.0"]
+
+[project.urls]
+Documentation = "https://github.com/example/dynamic-hotel-pricing#readme"
+
+[project.scripts]
+pricing-bootstrap = "scripts.bootstrap:main"
+pricing-monitor = "scripts.monitor:main"
+pricing-train = "scripts.train_models:main"
+
+# --------------------------------------------------------------------------- #
+# Packaging
+# --------------------------------------------------------------------------- #
+# The project is a set of top-level packages, not a src/ layout -- every module
+# path in the docs, the Dockerfile and PYTHONPATH assumes that.
+[tool.setuptools]
+packages = [
+    "ai_agent",
+    "api",
+    "api.routes",
+    "config",
+    "dashboard",
+    "dashboard.components",
+    "database",
+    "demo_ota",
+    "domain",
+    "features",
+    "ingestion",
+    "models",
+    "monitoring",
+    "pricing",
+    "scripts",
+    "streaming",
+    "training",
+]
+
+# --------------------------------------------------------------------------- #
+# Tooling
+# --------------------------------------------------------------------------- #
+
+[tool.pytest.ini_options]
+# 7.4, not 8.0. The `dev` extra pins 8.3.4, but pinning a version and *running*
+# it are different things -- this machine had 7.4.3 installed the whole time,
+# and a minversion of 8.0 turned that gap into a suite that would not start.
+# The floor is what the tests actually need, not what the pin aspires to.
+minversion = "7.4"
+testpaths = ["tests"]
+addopts = "-q --strict-markers"
+markers = [
+    "slow: takes more than a second",
+    "integration: needs a live service",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning:websockets.*",
+    "ignore::DeprecationWarning:bs4.*",
+    "ignore:.*strip_cdata.*:DeprecationWarning",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+exclude = ["_deck", ".venv", "data", "models/artifacts"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle
+    "F",    # pyflakes
+    "I",    # import sorting
+    "B",    # bugbear
+    "UP",   # pyupgrade
+    "SIM",  # simplify
+]
+ignore = [
+    "E501",  # line length -- the formatter owns this
+    "B008",  # FastAPI's Depends() in a default is the documented idiom
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Streamlit runs pages as top-level scripts, so the sys.path insert has to
+# happen before any project import.
+"dashboard/**" = ["E402"]
+"scripts/**" = ["E402"]
+"tests/**" = ["E402"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_unused_configs = true
+ignore_missing_imports = true
+# The pricing package is the part an auditor reads; it is held to a higher bar
+# than the glue around it.
+[[tool.mypy.overrides]]
+module = ["pricing.*", "config.*"]
+disallow_untyped_defs = true
+
+[tool.coverage.run]
+source = ["ai_agent", "api", "config", "database", "domain", "features", "ingestion", "models", "monitoring", "pricing", "streaming", "training"]
+omit = ["*/__pycache__/*", "*/tests/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]

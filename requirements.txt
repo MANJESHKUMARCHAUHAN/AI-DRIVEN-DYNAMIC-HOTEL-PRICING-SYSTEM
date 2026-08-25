@@ -1,0 +1,14 @@
+# DEPRECATED -- dependencies now live in pyproject.toml.
+#
+# There used to be three of these files (runtime, dev, agent) stating
+# overlapping things in three places, which is what
+# [project.optional-dependencies] exists to replace:
+#
+#   pip install -e .                 runtime only
+#   pip install -e ".[dev]"          + pytest, ruff, mypy
+#   pip install -e ".[agent]"        + the optional LLM agent
+#   pip install -e ".[dev,agent]"    everything
+#
+# This file remains only so an existing `pip install -r requirements.txt` keeps
+# working. It is safe to delete, and nothing in the project references it.
+-e .

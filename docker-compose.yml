@@ -1,0 +1,360 @@
+# =============================================================================
+# AI-Driven Dynamic Hotel Pricing System -- full local stack
+#
+#   docker compose up --build
+#
+# Five services. `api`, `dashboard` and `consumer` all run the same image with a
+# different command -- they share every dependency, so three images would mean
+# three copies of Prophet, NumPy and scikit-learn.
+#
+# SERVICE NAMES, NEVER LOCALHOST
+# ------------------------------
+# Inside a container, `localhost` is that container. `postgres`, `kafka` and
+# `api` are DNS names on the Compose network, and every inter-service setting
+# below uses them. That is also why POSTGRES_HOST is overridden here rather than
+# read from .env, which holds host-machine values for running things natively.
+#
+# STARTUP ORDER
+# -------------
+# `depends_on: condition: service_healthy` is necessary but not sufficient:
+# Kafka in KRaft mode accepts TCP connections before it has elected a
+# controller. The application code retries anyway (`wait_for_database`,
+# `wait_for_broker`), so a cold start converges instead of crash-looping.
+# =============================================================================
+
+x-app-env: &app-env
+  # Postgres reaches the container by service name, on its internal port.
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: 5432
+  POSTGRES_DB: ${POSTGRES_DB:-hotel_pricing}
+  POSTGRES_USER: ${POSTGRES_USER:-pricing}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local_dev_only_ch4nge_me}
+
+  KAFKA_ENABLED: "true"
+  KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+
+  ENVIRONMENT: docker
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  LOG_FORMAT: json
+
+  MODEL_DIR: /app/models/artifacts
+  DATA_DIR: /app/data
+
+  CURRENCY: ${CURRENCY:-INR}
+  MIN_PRICE: ${MIN_PRICE:-2500}
+  MAX_PRICE: ${MAX_PRICE:-25000}
+  MAX_DAILY_CHANGE_PERCENT: ${MAX_DAILY_CHANGE_PERCENT:-0.15}
+
+  # Real scraping by default -- against the bundled demo OTA, which is a service
+  # on this network rather than somebody else's website. The scraper reads its
+  # robots.txt, fetches HTML and parses CSS selectors exactly as it would for a
+  # third-party site.
+  #
+  # DELIBERATELY NOT ${INGESTION_SOURCE:-demo_ota}. Compose interpolates ${...}
+  # against the project's .env file, and .env ships INGESTION_SOURCE=synthetic
+  # -- which is the right default for a *native* run, where nobody may have
+  # started `make demo-ota`. Using the same name here meant .env silently won
+  # and the "Docker scrapes by default" promise was quietly false: the producer
+  # logged `Publishing from 'synthetic'` while every document said otherwise.
+  #
+  # A distinct name keeps the two defaults independent. Override it per-run:
+  #   COMPOSE_INGESTION_SOURCE=synthetic docker compose up
+  INGESTION_SOURCE: ${COMPOSE_INGESTION_SOURCE:-demo_ota}
+  INGESTION_DEMO_OTA_BASE_URL: http://demo-ota:8900
+  # Flip to v2 to make the demo site serve redesigned markup, so the scraper's
+  # ScraperParseError path can be watched rather than only described.
+  INGESTION_DEMO_OTA_LAYOUT: ${INGESTION_DEMO_OTA_LAYOUT:-v1}
+  # Only unlocks booking/expedia. demo_ota does not need it: the flag is about
+  # third-party terms of service, not about whether HTTP is involved.
+  INGESTION_ENABLE_REAL_SCRAPERS: "false"
+  # Polite by default. Costs wall-clock on a full sweep, which is the trade.
+  INGESTION_RATE_LIMIT_SECONDS: ${INGESTION_RATE_LIMIT_SECONDS:-1.0}
+
+  # Auth is OFF for the local stack, so `docker compose up` still answers
+  # without a header. ENVIRONMENT=production refuses to boot in this state --
+  # see config/settings.py::Settings._production_safety.
+  SECURITY_ENABLED: ${SECURITY_ENABLED:-false}
+  SECURITY_READ_KEY: ${SECURITY_READ_KEY:-dev-read-key}
+  SECURITY_WRITE_KEY: ${SECURITY_WRITE_KEY:-dev-write-key}
+  # The dashboard drives every endpoint, so it gets the write key. The AI agent
+  # runs inside the dashboard container but reads API_READ_KEY -- that asymmetry
+  # is the point: its read-only guarantee becomes a network fact, not a promise.
+  API_WRITE_KEY: ${SECURITY_WRITE_KEY:-dev-write-key}
+  API_READ_KEY: ${SECURITY_READ_KEY:-dev-read-key}
+
+  # Optional, for the AI Agent dashboard page only. Everything else runs
+  # without it; the page renders install instructions when it is absent.
+  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+
+x-app-build: &app-build
+  build:
+    context: .
+    dockerfile: Dockerfile
+  image: dynamic-hotel-pricing:latest
+  restart: unless-stopped
+  networks: [pricing]
+
+services:
+  # ------------------------------------------------------------------------- #
+  # PostgreSQL
+  # ------------------------------------------------------------------------- #
+  postgres:
+    image: postgres:16-alpine
+    container_name: pricing-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-hotel_pricing}
+      POSTGRES_USER: ${POSTGRES_USER:-pricing}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local_dev_only_ch4nge_me}
+      # Slightly faster initdb, and the collation is irrelevant here.
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8"
+    ports:
+      # Host port is configurable because a developer machine very often has a
+      # native Postgres already sitting on 5432.
+      - "${POSTGRES_HOST_PORT:-55432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      # `pg_isready` alone returns success while initdb is still running, so the
+      # user and database are named explicitly.
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-pricing} -d ${POSTGRES_DB:-hotel_pricing}"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+    networks: [pricing]
+
+  # ------------------------------------------------------------------------- #
+  # Kafka (KRaft mode -- no ZooKeeper, see ADR-002)
+  # ------------------------------------------------------------------------- #
+  kafka:
+    image: apache/kafka:4.1.2
+    container_name: pricing-kafka
+    restart: unless-stopped
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093,EXTERNAL://0.0.0.0:29092
+      # Two advertised listeners on purpose. Containers connect via `kafka:9092`;
+      # tools on the host connect via `localhost:29092`. A single listener cannot
+      # serve both, because the broker tells the client which address to use and
+      # only one of those names resolves on each side.
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      # Single broker: every replication factor must be 1, or the internal
+      # topics can never reach their required ISR and the broker hangs on boot.
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      CLUSTER_ID: hotel-pricing-kafka-01
+    ports:
+      - "${KAFKA_HOST_PORT:-29092}:29092"
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    healthcheck:
+      # An API-versions request, not a port check: in KRaft mode the socket
+      # opens well before the cluster can serve metadata.
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 25s
+    networks: [pricing]
+
+  # ------------------------------------------------------------------------- #
+  # Demo OTA -- the site the competitor scraper scrapes
+  # ------------------------------------------------------------------------- #
+  # A real web server returning real HTML with its own robots.txt. It exists
+  # because Booking.com and Expedia both disallow the search paths their
+  # scrapers would need, and HttpCompetitorScraper honours robots.txt -- so
+  # pointing at them yields ScraperBlocked, correctly. Rather than delete that
+  # check to make a demo work, the project ships a target that grants permission.
+  #
+  # Same image as the app: it is one FastAPI module with no extra dependencies.
+  demo-ota:
+    <<: *app-build
+    container_name: pricing-demo-ota
+    environment:
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    ports:
+      # Published so you can open the "competitor site" in a browser and see
+      # exactly what the scraper sees.
+      - "${DEMO_OTA_HOST_PORT:-8900}:8900"
+    command:
+      - uvicorn
+      - demo_ota.app:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8900"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8900/healthz', timeout=4).status==200 else 1)\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks: [pricing]
+
+  # ------------------------------------------------------------------------- #
+  # One-shot initialisation: schema, data, topics, features, models
+  # ------------------------------------------------------------------------- #
+  # Runs to completion and exits. `api` and `dashboard` wait for it to succeed,
+  # so a cold `docker compose up` produces a stack that can already price a room
+  # rather than one that needs six manual commands afterwards.
+  #
+  # IDEMPOTENT. Compose re-runs this on every `up`, so each step checks whether
+  # its work already exists and skips if so. An earlier version was a shell
+  # chain that always reseeded -- meaning restarting a single service silently
+  # destroyed every pricing decision and manually submitted competitor rate.
+  # `docker compose up` must converge, not reset.
+  init:
+    <<: *app-build
+    container_name: pricing-init
+    restart: "no"
+    environment:
+      <<: *app-env
+    depends_on:
+      postgres: {condition: service_healthy}
+      kafka: {condition: service_healthy}
+    volumes:
+      - model-artifacts:/app/models/artifacts
+      - app-data:/app/data
+    # A script rather than a shell chain, so the skip logic is testable and the
+    # same command works locally (`make bootstrap`). Set FORCE_INIT=1 to rebuild
+    # everything, which discards the database and retrains.
+    command: ["python", "scripts/bootstrap.py"]
+    networks: [pricing]
+
+  # ------------------------------------------------------------------------- #
+  # FastAPI
+  # ------------------------------------------------------------------------- #
+  api:
+    <<: *app-build
+    container_name: pricing-api
+    environment:
+      <<: *app-env
+      API_HOST: 0.0.0.0
+      API_PORT: 8000
+      API_CORS_ORIGINS: http://localhost:8501,http://dashboard:8501
+    ports:
+      - "${API_HOST_PORT:-8000}:8000"
+    depends_on:
+      postgres: {condition: service_healthy}
+      kafka: {condition: service_healthy}
+      init: {condition: service_completed_successfully}
+      # /ingestion/status reads the target's robots.txt, and /ingestion/run
+      # scrapes it. Neither crashes without it, but a cold start otherwise
+      # reports "could not determine crawl permission" until the site is up.
+      demo-ota: {condition: service_healthy}
+    volumes:
+      - model-artifacts:/app/models/artifacts
+      - app-data:/app/data
+    command: ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=4).status==200 else 1)\""]
+      interval: 15s
+      timeout: 6s
+      retries: 5
+      start_period: 30s
+    networks: [pricing]
+
+  # ------------------------------------------------------------------------- #
+  # Kafka consumer: events -> PostgreSQL
+  # ------------------------------------------------------------------------- #
+  consumer:
+    <<: *app-build
+    container_name: pricing-consumer
+    environment:
+      <<: *app-env
+    depends_on:
+      postgres: {condition: service_healthy}
+      kafka: {condition: service_healthy}
+      init: {condition: service_completed_successfully}
+    volumes:
+      - app-data:/app/data
+    command: ["python", "scripts/run_consumer.py", "--strict-validation"]
+    # The image's HEALTHCHECK probes the API on port 8000, which this container
+    # does not run -- so it would report "unhealthy" forever while working
+    # perfectly. A worker has no endpoint to probe; the real liveness signal is
+    # the process exiting, which `restart: unless-stopped` already handles.
+    # A false unhealthy is worse than no healthcheck: it trains operators to
+    # ignore the column.
+    healthcheck:
+      disable: true
+    networks: [pricing]
+
+  # ------------------------------------------------------------------------- #
+  # Competitor price producer
+  # ------------------------------------------------------------------------- #
+  producer:
+    <<: *app-build
+    container_name: pricing-producer
+    environment:
+      <<: *app-env
+    depends_on:
+      kafka: {condition: service_healthy}
+      init: {condition: service_completed_successfully}
+      # The scraper's target has to be answering before the first sweep, or the
+      # opening pass is nothing but connection errors.
+      demo-ota: {condition: service_healthy}
+    volumes:
+      - app-data:/app/data
+    # --interval is the pause between *sweeps*. Within a sweep the scraper's own
+    # rate limiter paces outbound requests; sleeping here as well would silently
+    # double how long a pass takes.
+    command: ["python", "scripts/run_producer.py", "--interval", "30"]
+    # Same reasoning as the consumer: a worker with no endpoint to probe.
+    healthcheck:
+      disable: true
+    networks: [pricing]
+
+  # ------------------------------------------------------------------------- #
+  # Streamlit dashboard
+  # ------------------------------------------------------------------------- #
+  dashboard:
+    <<: *app-build
+    container_name: pricing-dashboard
+    environment:
+      <<: *app-env
+      # A service name. `localhost` here would be the dashboard container.
+      API_BASE_URL: http://api:8000
+    ports:
+      - "${DASHBOARD_HOST_PORT:-8501}:8501"
+    depends_on:
+      api: {condition: service_healthy}
+    volumes:
+      # Read-only: the Monitoring and Model Performance pages read the JSON
+      # reports the API and the training pipeline write. The dashboard must
+      # never write into either.
+      - model-artifacts:/app/models/artifacts:ro
+      - app-data:/app/data:ro
+    command:
+      - streamlit
+      - run
+      - dashboard/app.py
+      - --server.port=8501
+      - --server.address=0.0.0.0
+      - --server.headless=true
+      - --browser.gatherUsageStats=false
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8501/healthz', timeout=4).status==200 else 1)\""]
+      interval: 20s
+      timeout: 6s
+      retries: 5
+      start_period: 30s
+    networks: [pricing]
+
+volumes:
+  postgres-data:
+  kafka-data:
+  model-artifacts:
+  app-data:
+
+networks:
+  pricing:
+    driver: bridge
